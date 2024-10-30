@@ -1,1 +1,1 @@
-# dual-cooperative-semantic
+Cooperative and Collaborative Multi-Task (CCMT) Semantic Communication
