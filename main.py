@@ -64,6 +64,8 @@ def run_training(iteration, dataset, lr, seed, save_results_to,save_directory,nr
     additional_maxpool = False
     pad = 1
 
+    SNR_eval = None
+
     retrain_SU_for_specific_SNR = True
 
     # Average Train SNR e.g. 0 or for no noise: +torch.math.inf 
@@ -112,6 +114,7 @@ def run_training(iteration, dataset, lr, seed, save_results_to,save_directory,nr
             return
 
     if training_scenario == 'over_NN_parameters':
+        print(training_scenario)
         SNR_train_range = 2
         SNR_task_1 = 5  
         SNR_task_2 = 10
@@ -267,7 +270,7 @@ def run_training(iteration, dataset, lr, seed, save_results_to,save_directory,nr
 
     elif training_scenario == 'over_SNR':
         SNR_train_range = 2
-
+        print(training_scenario)
         k_1 = 6; k_2 = 5; k_3 = 3; s_1 = 4; s_2 = 4; s_3 = 3     # mehr parameter 2
         centralised_observation = False
         n_x_latent = 2
@@ -348,14 +351,46 @@ def run_training(iteration, dataset, lr, seed, save_results_to,save_directory,nr
         else:
             return
 
-    model = Distributed_MultiTaskMultiUserComm(n_in=196, n_c_latent=n_c_latent, n_x_latent=n_x_latent, n_c_h=n_c_h, n_x_h=n_x_h, n_ohne_CU=n_ohne_CU, n_hidden_layer_ohne_CU=n_hidden_layer_ohne_CU,n_hidden_layer_su_with_cu=n_hidden_layer_su_with_cu, k_1=k_1, k_2=k_2, k_3=k_3, s_1=s_1, s_2=s_2, s_3=s_3,transmit_CU=broadcast_transmit_CU, centralised_observation=centralised_observation,SNR_task1=SNR_task_1,SNR_task2=SNR_task_2,additional_maxpool=additional_maxpool,pad=pad,SNR_train_range=SNR_train_range)
+    
+
+    elif training_scenario == 'over_Epochs':
+
+        k_1 = 6; k_2 = 5; k_3 = 3; s_1 = 4; s_2 = 4; s_3 = 3     # mehr parameter 2
+        centralised_observation = False
+        n_x_latent = 2
+
+        if save_results_to == 'model_1':
+            retrain_SU_for_specific_SNR = False
+            nr_training_epochs = nr_training_epochs + nr_training_epochs_retrain_SU
+            SNR_train_range = 2
+            SNR_task_1 = 10
+            SNR_task_2 = 10
+
+            SNR_eval = 10
+        
+        elif save_results_to == 'model_2':
+            retrain_SU_for_specific_SNR = True
+            # SNR_task_1 = 5 #4.5  
+            # SNR_task_2 = 5 #4.5
+
+            # SNR_train_range = 30# 19
+            SNR_train_range = 2
+            SNR_task_1 = 10
+            SNR_task_2 = 10
+
+            SNR_eval = 10
+
+        else:
+            return
+
+    model = Distributed_MultiTaskMultiUserComm(n_in=196, n_c_latent=n_c_latent, n_x_latent=n_x_latent, n_c_h=n_c_h, n_x_h=n_x_h, n_ohne_CU=n_ohne_CU, n_hidden_layer_ohne_CU=n_hidden_layer_ohne_CU,n_hidden_layer_su_with_cu=n_hidden_layer_su_with_cu, k_1=k_1, k_2=k_2, k_3=k_3, s_1=s_1, s_2=s_2, s_3=s_3,transmit_CU=broadcast_transmit_CU, centralised_observation=centralised_observation,SNR_task1=SNR_task_1,SNR_task2=SNR_task_2,additional_maxpool=additional_maxpool,pad=pad,SNR_train_range=SNR_train_range,SNR_eval=SNR_eval)
 
 
     if retrain_SU_for_specific_SNR == True:
         # set snr to train model for all SNR: 
-        model.multitask_network.SNR_task_1 = 4.5 #np.inf 
-        model.multitask_network.SNR_task_2 = 4.5 #np.inf 
-        model.multitask_network.SNR_train_range = 19
+        model.multitask_network.SNR_task_1 = 5 #np.inf 
+        model.multitask_network.SNR_task_2 = 5 #np.inf 
+        model.multitask_network.SNR_train_range = 30
 
         if training_scenario == 'pretrain_CU_for_perfect_ch':
             model.multitask_network.SNR_task_1 = np.inf 
@@ -369,12 +404,21 @@ def run_training(iteration, dataset, lr, seed, save_results_to,save_directory,nr
               second_test_dataset=second_test_dataset, batch_size=100, n_epoch_primal=nr_training_epochs, learning_rate=lr, path=save_path, iteration=iteration,rotate_images=rotate_images,low_angle=low_angle,high_angle=high_angle)  #n_epoch_primal=400, 500
 
     if retrain_SU_for_specific_SNR == False:
-        model.fit(first_dataset=first_task_dataset, second_dataset=second_task_dataset, first_test_dataset=first_test_dataset,
-              second_test_dataset=second_test_dataset, batch_size=100, n_epoch_primal=10, learning_rate=lr*0.1, path=save_path, iteration=iteration,rotate_images=rotate_images,low_angle=low_angle,high_angle=high_angle)
-        model.fit(first_dataset=first_task_dataset, second_dataset=second_task_dataset, first_test_dataset=first_test_dataset,
-              second_test_dataset=second_test_dataset, batch_size=100, n_epoch_primal=10, learning_rate=lr*0.01, path=save_path, iteration=iteration,rotate_images=rotate_images,low_angle=low_angle,high_angle=high_angle)
-        model.fit(first_dataset=first_task_dataset, second_dataset=second_task_dataset, first_test_dataset=first_test_dataset,
-              second_test_dataset=second_test_dataset, batch_size=100, n_epoch_primal=10, learning_rate=lr*0.001, path=save_path, iteration=iteration,rotate_images=rotate_images,low_angle=low_angle,high_angle=high_angle)
+        
+        if rotate_images == True:
+            model.fit(first_dataset=first_task_dataset, second_dataset=second_task_dataset, first_test_dataset=first_test_dataset,
+                second_test_dataset=second_test_dataset, batch_size=100, n_epoch_primal=100, learning_rate=lr*0.1, path=save_path, iteration=iteration,rotate_images=rotate_images,low_angle=low_angle,high_angle=high_angle)
+            model.fit(first_dataset=first_task_dataset, second_dataset=second_task_dataset, first_test_dataset=first_test_dataset,
+                second_test_dataset=second_test_dataset, batch_size=100, n_epoch_primal=50, learning_rate=lr*0.01, path=save_path, iteration=iteration,rotate_images=rotate_images,low_angle=low_angle,high_angle=high_angle)
+            model.fit(first_dataset=first_task_dataset, second_dataset=second_task_dataset, first_test_dataset=first_test_dataset,
+                second_test_dataset=second_test_dataset, batch_size=100, n_epoch_primal=50, learning_rate=lr*0.001, path=save_path, iteration=iteration,rotate_images=rotate_images,low_angle=low_angle,high_angle=high_angle)
+        else:
+            model.fit(first_dataset=first_task_dataset, second_dataset=second_task_dataset, first_test_dataset=first_test_dataset,
+                second_test_dataset=second_test_dataset, batch_size=100, n_epoch_primal=10, learning_rate=lr*0.1, path=save_path, iteration=iteration,rotate_images=rotate_images,low_angle=low_angle,high_angle=high_angle)
+            model.fit(first_dataset=first_task_dataset, second_dataset=second_task_dataset, first_test_dataset=first_test_dataset,
+                second_test_dataset=second_test_dataset, batch_size=100, n_epoch_primal=10, learning_rate=lr*0.01, path=save_path, iteration=iteration,rotate_images=rotate_images,low_angle=low_angle,high_angle=high_angle)
+            model.fit(first_dataset=first_task_dataset, second_dataset=second_task_dataset, first_test_dataset=first_test_dataset,
+                second_test_dataset=second_test_dataset, batch_size=100, n_epoch_primal=10, learning_rate=lr*0.001, path=save_path, iteration=iteration,rotate_images=rotate_images,low_angle=low_angle,high_angle=high_angle)
 
     # obj0, obj1, obj2 are created here...
 
@@ -407,12 +451,21 @@ def run_training(iteration, dataset, lr, seed, save_results_to,save_directory,nr
 
         model.fit(first_dataset=first_task_dataset, second_dataset=second_task_dataset, first_test_dataset=first_test_dataset,
               second_test_dataset=second_test_dataset, batch_size=100, n_epoch_primal=nr_training_epochs_retrain_SU, learning_rate=lr, path=save_path, iteration=iteration,rotate_images=rotate_images,low_angle=low_angle,high_angle=high_angle)  #n_epoch_primal=400, 500
-        model.fit(first_dataset=first_task_dataset, second_dataset=second_task_dataset, first_test_dataset=first_test_dataset,
-              second_test_dataset=second_test_dataset, batch_size=100, n_epoch_primal=10, learning_rate=lr*0.1, path=save_path, iteration=iteration,rotate_images=rotate_images,low_angle=low_angle,high_angle=high_angle)  #n_epoch_primal=400, 500
-        model.fit(first_dataset=first_task_dataset, second_dataset=second_task_dataset, first_test_dataset=first_test_dataset,
-              second_test_dataset=second_test_dataset, batch_size=100, n_epoch_primal=10, learning_rate=lr*0.01, path=save_path, iteration=iteration,rotate_images=rotate_images,low_angle=low_angle,high_angle=high_angle)
-        model.fit(first_dataset=first_task_dataset, second_dataset=second_task_dataset, first_test_dataset=first_test_dataset,
-              second_test_dataset=second_test_dataset, batch_size=100, n_epoch_primal=10, learning_rate=lr*0.001, path=save_path, iteration=iteration,rotate_images=rotate_images,low_angle=low_angle,high_angle=high_angle)
+        if rotate_images == True:
+            model.fit(first_dataset=first_task_dataset, second_dataset=second_task_dataset, first_test_dataset=first_test_dataset,
+                second_test_dataset=second_test_dataset, batch_size=100, n_epoch_primal=100, learning_rate=lr*0.1, path=save_path, iteration=iteration,rotate_images=rotate_images,low_angle=low_angle,high_angle=high_angle)  #n_epoch_primal=400, 500
+            model.fit(first_dataset=first_task_dataset, second_dataset=second_task_dataset, first_test_dataset=first_test_dataset,
+                second_test_dataset=second_test_dataset, batch_size=100, n_epoch_primal=50, learning_rate=lr*0.01, path=save_path, iteration=iteration,rotate_images=rotate_images,low_angle=low_angle,high_angle=high_angle)
+            model.fit(first_dataset=first_task_dataset, second_dataset=second_task_dataset, first_test_dataset=first_test_dataset,
+                second_test_dataset=second_test_dataset, batch_size=100, n_epoch_primal=50, learning_rate=lr*0.001, path=save_path, iteration=iteration,rotate_images=rotate_images,low_angle=low_angle,high_angle=high_angle)
+        
+        else:
+            model.fit(first_dataset=first_task_dataset, second_dataset=second_task_dataset, first_test_dataset=first_test_dataset,
+                second_test_dataset=second_test_dataset, batch_size=100, n_epoch_primal=10, learning_rate=lr*0.1, path=save_path, iteration=iteration,rotate_images=rotate_images,low_angle=low_angle,high_angle=high_angle)  #n_epoch_primal=400, 500
+            model.fit(first_dataset=first_task_dataset, second_dataset=second_task_dataset, first_test_dataset=first_test_dataset,
+                second_test_dataset=second_test_dataset, batch_size=100, n_epoch_primal=10, learning_rate=lr*0.01, path=save_path, iteration=iteration,rotate_images=rotate_images,low_angle=low_angle,high_angle=high_angle)
+            model.fit(first_dataset=first_task_dataset, second_dataset=second_task_dataset, first_test_dataset=first_test_dataset,
+                second_test_dataset=second_test_dataset, batch_size=100, n_epoch_primal=10, learning_rate=lr*0.001, path=save_path, iteration=iteration,rotate_images=rotate_images,low_angle=low_angle,high_angle=high_angle)
         
         
     # Save Results
@@ -481,7 +534,7 @@ def run_training(iteration, dataset, lr, seed, save_results_to,save_directory,nr
 
 if __name__ == '__main__':
     
-    save_directory = "run_37" 
+    save_directory = "run_40" 
 
     # run_32 main simulation without image roation
     # run_34 with image rotation 30 degree
@@ -489,7 +542,10 @@ if __name__ == '__main__':
     # run_35_NN :  no image rotation, over NN task1: 5dB, task2: 10dB
     # run_36_SNR :  with image rotation 20 degree
     # run_37_SNR / 37_NN :  with image rotation 30 degree
-    training_scenario = 'over_NN_parameters_large'  # 'over_NN_parameters' , 'over_SNR', pretrain_CU_for_perfect_ch
+
+    # run 39 neun über epochs plot
+    # run 40 lower learning rate for dataset with rotation
+    training_scenario = 'over_NN_parameters'  # 'over_NN_parameters', 'over_NN_parameters_large' , 'over_SNR',, 'over_Epochs' pretrain_CU_for_perfect_ch
 
     save_results_to = "model_1" # if train_slurm = True does not matter, which is select here
 
@@ -509,6 +565,12 @@ if __name__ == '__main__':
     low_angle=-30  # was +-30 degree for run 34, for run 36 its +-15 degree
     high_angle=+30
 
+    if training_scenario == 'over_Epochs':
+        rotate_images = False
+
+    if rotate_images == True:
+        nr_training_epochs_retrain_SU = 50
+        print("Dataset with image rotation is used")
 
 
     if training_scenario == 'over_NN_parameters':
@@ -529,8 +591,8 @@ if __name__ == '__main__':
         # print('datatype='+str(type(args.iteration_id)))
 
         save_results_to = "model_" + args.iteration_id
-        print("\n save_directory:"+ save_directory +"\n")
-        print("run model:" + save_results_to )
+    print("\n save_directory:"+ save_directory +"\n")
+    print("run model:" + save_results_to )
 
     
     

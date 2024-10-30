@@ -12,7 +12,7 @@ def load_and_average(directory, file_prefix):
     n_counter = 0
     for file_name in file_list:
         n_counter = n_counter + 1
-        #if n_counter < 11:
+        #if n_counter < 2:
         data.append(np.load(os.path.join(directory, file_name)))
     
     #filtered_list = [row for row in data if row[-1]/row[0] < 0.99] #exclude outliers where training did not converge at all
@@ -38,7 +38,7 @@ def tikzplotlib_fix_ncols(obj):
 
 # run_22_broadcast_Same_SNR or run_21_broadcast
 
-load_directory = "run_37_SNR" #run_34_SNR and run_32_SNR, run_32_NN # run_37 : SNR, NN , NN_large 
+load_directory = "run_40_NN_large" #run_34_SNR and run_32_SNR, run_32_NN # run_37 : SNR, NN , NN_large 
 load_model = "model_1"  #1,  7,  13 
 
 plot_error_over_epochs = True
@@ -335,7 +335,7 @@ if plot_over_SNR == True:
 if Plot_over_Nr_parameters == True:
 
     Nr_parameter_plot = 6
-    if load_directory == "run_37_NN_large":
+    if load_directory == "run_37_NN_large" or load_directory == "run_40_NN_large":
         Nr_parameter_plot = 3
 
     eval_at_SNR_index = 25 # 25 gives 5 SNR for task 1

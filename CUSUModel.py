@@ -13,9 +13,10 @@ from utils import awgn_channel, reparameterize
 import gc
 
 class Distributed_MultiTaskNetwork(nn.Module):
-    def __init__(self, n_in, n_c_latent, n_c_h, n_x_in, n_x_latent, n_x_h,n_hidden_layer,conv_layer=True,transmit_CU=False,k_1=4, k_2=3, k_3=1,centralised_observation=False,SNR_task_1=0,SNR_task_2 = 0, additional_maxpool=False,pad=1,SNR_train_range=0):
+    def __init__(self, n_in, n_c_latent, n_c_h, n_x_in, n_x_latent, n_x_h,n_hidden_layer,conv_layer=True,transmit_CU=False,k_1=4, k_2=3, k_3=1,centralised_observation=False,SNR_task_1=0,SNR_task_2 = 0, additional_maxpool=False,pad=1,SNR_train_range=0,eval_SNR=None):
         super(Distributed_MultiTaskNetwork, self).__init__()
 
+        self.eval_SNR = eval_SNR
         self.n_in = n_in
         self.n_c_latent = n_c_latent
         self.n_h = n_c_h
@@ -760,14 +761,14 @@ class SU_ohne_CUnet(nn.Module):
 
 class Distributed_MultiTaskMultiUserComm:
 
-    def __init__(self, n_in, n_c_latent, n_c_h, n_x_latent, n_x_h, n_ohne_CU,n_hidden_layer_ohne_CU,n_hidden_layer_su_with_cu,transmit_CU,k_1,k_2,k_3,s_1,s_2,s_3,centralised_observation,SNR_task1,SNR_task2,additional_maxpool,pad,SNR_train_range=0):
+    def __init__(self, n_in, n_c_latent, n_c_h, n_x_latent, n_x_h, n_ohne_CU,n_hidden_layer_ohne_CU,n_hidden_layer_su_with_cu,transmit_CU,k_1,k_2,k_3,s_1,s_2,s_3,centralised_observation,SNR_task1,SNR_task2,additional_maxpool,pad,SNR_train_range=0,SNR_eval=None):
         
 
         # if centralised_observation == True:
         #     n_x_latent = n_x_latent * 4
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.multitask_network = Distributed_MultiTaskNetwork(n_in=n_in, n_c_latent= n_c_latent, n_c_h=n_c_h, n_x_in=n_c_latent, n_x_latent=n_x_latent, n_x_h=n_x_h,n_hidden_layer=n_hidden_layer_su_with_cu,transmit_CU=transmit_CU,k_1=k_1, k_2=k_2, k_3=k_3,centralised_observation=centralised_observation,SNR_task_1=SNR_task1,SNR_task_2=SNR_task2,additional_maxpool=additional_maxpool,pad=pad,SNR_train_range=SNR_train_range).to(self.device)
+        self.multitask_network = Distributed_MultiTaskNetwork(n_in=n_in, n_c_latent= n_c_latent, n_c_h=n_c_h, n_x_in=n_c_latent, n_x_latent=n_x_latent, n_x_h=n_x_h,n_hidden_layer=n_hidden_layer_su_with_cu,transmit_CU=transmit_CU,k_1=k_1, k_2=k_2, k_3=k_3,centralised_observation=centralised_observation,SNR_task_1=SNR_task1,SNR_task_2=SNR_task2,additional_maxpool=additional_maxpool,pad=pad,SNR_train_range=SNR_train_range,eval_SNR=SNR_eval).to(self.device)
         self.SUohneCU_network = Distributed_SU_ohne_CUnet(n_x_h=n_ohne_CU, n_x_latent=n_x_latent,n_hidden_layer=n_hidden_layer_ohne_CU,s_1=s_1, s_2=s_2, s_3=s_3,centralised_observation=centralised_observation,SNR=SNR_task1,additional_maxpool=additional_maxpool,pad=pad,SNR_train_range=SNR_train_range).to(self.device)
         self.SUohneCU_network_task2 = Distributed_SU_ohne_CUnet(n_x_h=n_ohne_CU, n_x_latent=n_x_latent,n_hidden_layer=n_hidden_layer_ohne_CU,Nr_decoder_outputs=10,s_1=s_1, s_2=s_2, s_3=s_3,centralised_observation=centralised_observation,SNR=SNR_task2,additional_maxpool=additional_maxpool,pad=pad,SNR_train_range=SNR_train_range).to(self.device)
 
@@ -1151,7 +1152,21 @@ class Distributed_MultiTaskMultiUserComm:
                 su_ohne_optimizer_task2.step() 
             
             #self.multitask_network.eval()
-            test_accuracy_task_one, test_accuracy_task_two, test_accuracy_task_one_ohne, test_accuracy_task_two_ohne, error_rate_task1, error_rate_task2, error_rate_task1_ohnecu, error_rate_task2_ohnecu = self.eval(first_test_dataset, second_test_dataset,eval_SNR_task_1=self.multitask_network.SNR_task_1,eval_SNR_task_2=self.multitask_network.SNR_task_2,eval_SNR_task_1_noCU=self.SUohneCU_network.SNR,eval_SNR_task_2_noCU=self.SUohneCU_network_task2.SNR,batch_size=batch_size,iteration=iteration,rotate_images=rotate_images,low_angle=low_angle,high_angle=high_angle)
+            if self.multitask_network.eval_SNR == None:
+                eval_SNR_task_1 = self.multitask_network.SNR_task_1
+                eval_SNR_task_2 = self.multitask_network.SNR_task_2
+
+                eval_SNR_task_1_noCU=self.SUohneCU_network.SNR
+                eval_SNR_task_2_noCU=self.SUohneCU_network_task2.SNR
+                eval_specific_SNR = False
+            else:
+                eval_SNR_task_1 = self.multitask_network.eval_SNR
+                eval_SNR_task_2 = self.multitask_network.eval_SNR
+                eval_SNR_task_1_noCU = self.multitask_network.eval_SNR
+                eval_SNR_task_2_noCU = self.multitask_network.eval_SNR
+                eval_specific_SNR = True
+
+            test_accuracy_task_one, test_accuracy_task_two, test_accuracy_task_one_ohne, test_accuracy_task_two_ohne, error_rate_task1, error_rate_task2, error_rate_task1_ohnecu, error_rate_task2_ohnecu = self.eval(first_test_dataset, second_test_dataset,eval_SNR_task_1=eval_SNR_task_1,eval_SNR_task_2=eval_SNR_task_2,eval_SNR_task_1_noCU=eval_SNR_task_1_noCU,eval_SNR_task_2_noCU=eval_SNR_task_2_noCU,batch_size=batch_size,iteration=iteration,rotate_images=rotate_images,low_angle=low_angle,high_angle=high_angle,eval_specific_SNR=eval_specific_SNR)
 
 
             end = time.time()
